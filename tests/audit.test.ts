@@ -10,7 +10,7 @@ describe("writeAudit", () => {
   it("writes a row with JSON-encoded before/after", async () => {
     const lead = await userByEmail("lead@demo.test");
     const row = await writeAudit(prisma, {
-      actorId: lead.id,
+      actorId: lead.id, actorRole: "OPS_LEAD",
       action: "test.write",
       entityType: "widget",
       entityId: "w1",
@@ -19,7 +19,7 @@ describe("writeAudit", () => {
     });
     const stored = await prisma.auditLog.findUniqueOrThrow({ where: { id: row.id } });
     expect(stored).toMatchObject({
-      actorId: lead.id,
+      actorId: lead.id, actorRole: "OPS_LEAD",
       action: "test.write",
       entityType: "widget",
       entityId: "w1",
@@ -30,7 +30,7 @@ describe("writeAudit", () => {
 
   it("never updates: a second write for the same entity appends and leaves the first row intact", async () => {
     const lead = await userByEmail("lead@demo.test");
-    const base = { actorId: lead.id, entityType: "widget", entityId: "w2" };
+    const base = { actorId: lead.id, actorRole: "OPS_LEAD", entityType: "widget", entityId: "w2" };
     const first = await writeAudit(prisma, { ...base, action: "test.first", after: { v: 1 } });
     const countAfterFirst = await prisma.auditLog.count();
 
@@ -47,7 +47,7 @@ describe("writeAudit", () => {
     const before = await prisma.auditLog.count();
     await expect(
       prisma.$transaction(async (tx) => {
-        await writeAudit(tx, { actorId: lead.id, action: "test.rollback", entityType: "widget", entityId: "w3" });
+        await writeAudit(tx, { actorId: lead.id, actorRole: "OPS_LEAD", action: "test.rollback", entityType: "widget", entityId: "w3" });
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");

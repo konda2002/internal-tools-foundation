@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionButton } from "@/components/ActionButton";
+import { TextField } from "@/components/TextField";
 
 export function LoginForm() {
   const router = useRouter();
@@ -32,30 +33,24 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit}>
-      <div className="field">
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          className="input"
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          className="input"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
+      <TextField
+        label="Email"
+        name="email"
+        type="email"
+        autoComplete="username"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <TextField
+        label="Password"
+        name="password"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
       {error && <p className="error-text" role="alert">{error}</p>}
       <ActionButton
         type="submit"

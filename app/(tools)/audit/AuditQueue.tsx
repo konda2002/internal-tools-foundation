@@ -11,18 +11,44 @@ const columns: Column<AuditRow>[] = [
     key: "createdAt",
     header: "When",
     nowrap: true,
+    value: (r) => r.createdAt,
     render: (r) => <span className="mono">{new Date(r.createdAt).toLocaleString()}</span>,
   },
   { key: "action", header: "Action", nowrap: true, render: (r) => <span className="mono">{r.action}</span> },
-  { key: "actorEmail", header: "Actor", nowrap: true },
+  {
+    key: "actorEmail",
+    header: "Actor",
+    nowrap: true,
+    value: (r) => `${r.actorEmail} ${r.actorRole}`,
+    render: (r) => (
+      <>
+        {r.actorEmail} <span className="pill">{r.actorRole}</span>
+      </>
+    ),
+  },
   {
     key: "entity",
     header: "Entity",
+    nowrap: true,
+    value: (r) => `${r.entityType}/${r.entityId}`,
     render: (r) => (
       <span className="mono">
         {r.entityType}/{r.entityId}
       </span>
     ),
+  },
+  {
+    key: "reason",
+    header: "Reason",
+    value: (r) => r.reason ?? "",
+    render: (r) =>
+      r.reason ? (
+        <span className="truncate" title={r.reason}>
+          {r.reason}
+        </span>
+      ) : (
+        <span className="helper">—</span>
+      ),
   },
 ];
 
@@ -82,23 +108,27 @@ export function AuditQueue() {
   return (
     <div className={`split${selected ? "" : " single"}`}>
       <div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <ActionButton
-            variant="secondary"
-            onClick={refresh}
-            loading={loading}
-            disabledReason={rows === null ? "Loading…" : undefined}
-          >
-            Refresh
-          </ActionButton>
-        </div>
         <QueueTable
-          columns={columns}
+          columns={selected ? columns.filter((c) => c.key !== "reason") : columns}
           rows={rows ?? []}
           getRowId={(r) => r.id}
           selectedId={selectedId}
           onRowClick={(r) => setSelectedId(r.id === selectedId ? null : r.id)}
           emptyMessage={rows === null ? "Loading…" : "No audit rows yet."}
+          searchable
+          searchPlaceholder="Filter by action, actor, entity, reason…"
+          defaultSort={{ key: "createdAt", dir: "desc" }}
+          pageSize={25}
+          toolbar={
+            <ActionButton
+              variant="secondary"
+              onClick={refresh}
+              loading={loading}
+              disabledReason={rows === null ? "Loading…" : undefined}
+            >
+              Refresh
+            </ActionButton>
+          }
         />
       </div>
       {selected && (
@@ -107,8 +137,17 @@ export function AuditQueue() {
           subtitle={new Date(selected.createdAt).toLocaleString()}
           onClose={() => setSelectedId(null)}
           fields={[
-            { label: "Actor", value: selected.actorEmail },
+            {
+              label: "Actor",
+              value: (
+                <>
+                  {selected.actorEmail} <span className="pill">{selected.actorRole}</span>
+                </>
+              ),
+            },
             { label: "Entity", value: `${selected.entityType}/${selected.entityId}` },
+            { label: "Reason", value: selected.reason ?? <span className="helper">none given</span> },
+            { label: "Request id", value: <span className="mono">{selected.requestId ?? "—"}</span> },
             { label: "Audit id", value: <span className="mono">{selected.id}</span> },
           ]}
         >

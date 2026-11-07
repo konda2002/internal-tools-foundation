@@ -41,9 +41,15 @@ docs/tools/<tool>.md                  the spec this was built from (already exis
 4. **API routes under `app/api/<tool>/`.**
    - Reads: copy `app/api/audit/route.ts`. `requireRole` first, then query,
      then `json(200, ...)`.
-   - Writes: copy `app/api/_template/route.ts` and keep its six steps in order:
-     `requireRole` → zod parse (400) → load (404) → business rules (403/409) →
-     `prisma.$transaction` with `writeAudit` → return entity.
+   - Writes: copy `app/api/_template/route.ts`. It is a `defineWriteRoute({...})`
+     call (`lib/write-route.ts`) with one field per step:
+     `role` → `body` (zod, 400) → `load` (null → 404) → `check` (throw 403/409)
+     → `mutate` (inside `prisma.$transaction`) → `respond`. The helper writes
+     the audit row for you in the same transaction, with actor role, request
+     id and `body.reason`. Do **not** hand-roll a write route; if the helper
+     can't express a case, extend it and say so in the PR.
+   - If the spec requires a justification, make `reason` required in the zod
+     schema (`z.string().min(3)`) and collect it with `ConfirmDialog`.
    - **All business rules live in the API.** If the spec says "only OPS_LEAD
      may approve over $500", that is a check in the route, not just a disabled
      button.
@@ -53,10 +59,13 @@ docs/tools/<tool>.md                  the spec this was built from (already exis
      the model name in lower case, `before`/`after` are the full row.
 5. **Page under `app/(tools)/<tool>/`.** Build it from the kit only:
    - `AppShell` is already applied by `app/(tools)/layout.tsx`.
-   - `QueueTable` for the list, `DetailPanel` for the selected row,
-     `ActionButton` for each action with a `disabledReason` that mirrors the
-     API's rule (e.g. `"Only OPS_LEAD can approve"`). The button is a hint;
-     the API decides.
+   - `QueueTable` for the list (`searchable`, `defaultSort`, `pageSize` are
+     built in), `DetailPanel` for the selected row, `ActionButton` for each
+     action with a `disabledReason` that mirrors the API's rule (e.g.
+     `"Only OPS_LEAD can approve"`). The button is a hint; the API decides.
+   - `ConfirmDialog` before every state change; pass `requireReason` when the
+     spec wants a justification and send it as `reason` in the POST body.
+   - `TextField` / `SelectField` for any inputs (create/edit forms, filters).
    - Fetch from `/api/<tool>` on the client and render the API's error
      message when it returns 403 — never pre-check roles in the page.
 6. **Nav entry** in `lib/nav.ts` with the roles that may use the tool.
@@ -82,9 +91,12 @@ docs/tools/<tool>.md                  the spec this was built from (already exis
 | Purpose | File |
 | --- | --- |
 | Write handler template (the six steps) | `app/api/_template/route.ts` |
+| Write route builder (enforces the steps + audit) | `lib/write-route.ts` → `defineWriteRoute` |
+| Governance controls and what is still missing | `docs/governance.md` |
 | Read handler example | `app/api/audit/route.ts` |
 | Example page using the whole kit | `app/(tools)/audit/` |
 | Role check | `lib/auth.ts` → `requireRole` |
-| Audit helper | `lib/audit.ts` → `writeAudit` |
+| Audit helper (used by `defineWriteRoute`) | `lib/audit.ts` → `writeAudit` |
+| UI kit | `components/` — AppShell, QueueTable, DetailPanel, ActionButton, ConfirmDialog, TextField, SelectField |
 | Response helpers / error shape | `lib/api.ts` |
 | Test helpers | `tests/helpers.ts` |

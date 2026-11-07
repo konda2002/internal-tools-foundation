@@ -72,6 +72,34 @@ describe("app/api/_template write handler", () => {
     expect(JSON.parse(audit.after!)).toMatchObject({ status: "RESOLVED" });
   });
 
+  it("records governance fields: actor role, request id (echoed in the header) and reason", async () => {
+    const req = jsonRequest(
+      url,
+      { id: "note_open_1", status: "RESOLVED", reason: "Customer confirmed by phone" },
+      { cookie: lead },
+    );
+    req.headers.set("x-request-id", "test-req-0001");
+    const res = await POST(req, {});
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-request-id")).toBe("test-req-0001");
+
+    const audit = await prisma.auditLog.findFirstOrThrow({ where: { requestId: "test-req-0001" } });
+    expect(audit.actorRole).toBe("OPS_LEAD");
+    expect(audit.reason).toBe("Customer confirmed by phone");
+    expect(audit.action).toBe("note.resolve");
+  });
+
+  it("generates a request id when the client does not send one, and returns it on errors too", async () => {
+    const ok = await POST(jsonRequest(url, { id: "note_open_1", status: "RESOLVED" }, { cookie: lead }), {});
+    const rid = ok.headers.get("x-request-id");
+    expect(rid).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await prisma.auditLog.count({ where: { requestId: rid! } })).toBe(1);
+
+    const denied = await POST(jsonRequest(url, { id: "note_open_1", status: "OPEN" }, { cookie: analyst }), {});
+    expect(denied.status).toBe(403);
+    expect(denied.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
   it("writes no audit row when the update fails (transaction is atomic)", async () => {
     const auditBefore = await prisma.auditLog.count();
     // Simulate a race: the note disappears between the load (step 3) and the

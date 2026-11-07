@@ -30,6 +30,8 @@ model User {
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String   @map("actor_id")
+  /// Role the actor held when acting ("ANALYST" | "OPS_LEAD"); roles change, history must not
+  actorRole  String   @map("actor_role")
   action     String
   entityType String   @map("entity_type")
   entityId   String   @map("entity_id")
@@ -37,12 +39,18 @@ model AuditLog {
   before     String?
   /// JSON snapshot of the entity after the change (null for deletes)
   after      String?
+  /// Matches the x-request-id response header, for tracing a change to a request/log line
+  requestId  String?  @map("request_id")
+  /// Actor-supplied justification, when the tool asks for one
+  reason     String?
   createdAt  DateTime @default(now()) @map("created_at")
 
   actor User @relation(fields: [actorId], references: [id])
 
   @@index([createdAt])
   @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([requestId])
   @@map("audit_log")
 }
 

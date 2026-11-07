@@ -11,11 +11,14 @@ CREATE TABLE "users" (
 CREATE TABLE "audit_log" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "actor_id" TEXT NOT NULL,
+    "actor_role" TEXT NOT NULL,
     "action" TEXT NOT NULL,
     "entity_type" TEXT NOT NULL,
     "entity_id" TEXT NOT NULL,
     "before" TEXT,
     "after" TEXT,
+    "request_id" TEXT,
+    "reason" TEXT,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "audit_log_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -35,6 +38,12 @@ CREATE INDEX "audit_log_created_at_idx" ON "audit_log"("created_at");
 
 -- CreateIndex
 CREATE INDEX "audit_log_entity_type_entity_id_idx" ON "audit_log"("entity_type", "entity_id");
+
+-- CreateIndex
+CREATE INDEX "audit_log_actor_id_idx" ON "audit_log"("actor_id");
+
+-- CreateIndex
+CREATE INDEX "audit_log_request_id_idx" ON "audit_log"("request_id");
 
 -- audit_log is append-only. These triggers make that a database-level
 -- guarantee, independent of application code.

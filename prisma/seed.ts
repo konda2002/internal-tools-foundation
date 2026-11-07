@@ -52,7 +52,9 @@ async function main() {
       data: [
         {
           actorId: lead.id,
+          actorRole: "OPS_LEAD",
           action: "user.create",
+          requestId: "seed-user-create-0001",
           entityType: "user",
           entityId: analyst.id,
           before: null,
@@ -61,7 +63,9 @@ async function main() {
         },
         {
           actorId: lead.id,
+          actorRole: "OPS_LEAD",
           action: "note.create",
+          requestId: "seed-note-create-0001",
           entityType: "note",
           entityId: "note_open_1",
           before: null,
@@ -70,7 +74,10 @@ async function main() {
         },
         {
           actorId: analyst.id,
+          actorRole: "ANALYST",
           action: "note.resolve",
+          requestId: "seed-note-resolve-0001",
+          reason: "Customer confirmed the re-uploaded document by phone",
           entityType: "note",
           entityId: "note_resolved_1",
           before: JSON.stringify({ id: "note_resolved_1", status: "OPEN" }),

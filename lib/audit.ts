@@ -24,6 +24,8 @@ export type AuditClient = Pick<Prisma.TransactionClient, "auditLog">;
 
 export type AuditInput = {
   actorId: string;
+  /** The actor's role at the time of the action (roles change; the log must not). */
+  actorRole: string;
   /** Dot-namespaced verb, e.g. "note.resolve", "refund.approve". */
   action: string;
   /** Table / model name, e.g. "note". */
@@ -33,17 +35,24 @@ export type AuditInput = {
   before?: unknown;
   /** Snapshot after the change. Omit or pass null for deletes. */
   after?: unknown;
+  /** Correlates with the `x-request-id` response header and server logs. */
+  requestId?: string;
+  /** Free-text justification supplied by the actor (e.g. "customer called"). */
+  reason?: string;
 };
 
 export async function writeAudit(tx: AuditClient, input: AuditInput): Promise<AuditLog> {
   return tx.auditLog.create({
     data: {
       actorId: input.actorId,
+      actorRole: input.actorRole,
       action: input.action,
       entityType: input.entityType,
       entityId: input.entityId,
       before: input.before == null ? null : JSON.stringify(input.before),
       after: input.after == null ? null : JSON.stringify(input.after),
+      requestId: input.requestId ?? null,
+      reason: input.reason ?? null,
     },
   });
 }
@@ -53,11 +62,14 @@ export type AuditRow = {
   id: string;
   actorId: string;
   actorEmail: string;
+  actorRole: string;
   action: string;
   entityType: string;
   entityId: string;
   before: unknown;
   after: unknown;
+  requestId: string | null;
+  reason: string | null;
   createdAt: string;
 };
 
@@ -66,11 +78,14 @@ export function toAuditRow(row: AuditLog & { actor: { email: string } }): AuditR
     id: row.id,
     actorId: row.actorId,
     actorEmail: row.actor.email,
+    actorRole: row.actorRole,
     action: row.action,
     entityType: row.entityType,
     entityId: row.entityId,
     before: row.before == null ? null : JSON.parse(row.before),
     after: row.after == null ? null : JSON.parse(row.after),
+    requestId: row.requestId,
+    reason: row.reason,
     createdAt: row.createdAt.toISOString(),
   };
 }
