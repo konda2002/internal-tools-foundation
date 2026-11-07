@@ -10,6 +10,7 @@ export type NavItem = { href: string; label: string; roles: readonly Role[] };
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "Home", roles: ["ANALYST", "OPS_LEAD"] },
   { href: "/refunds", label: "Refunds", roles: ["ANALYST", "OPS_LEAD"] },
+  { href: "/kyc", label: "KYC review", roles: ["OPS_LEAD"] },
   { href: "/audit", label: "Audit log", roles: ["OPS_LEAD"] },
 ];
 
