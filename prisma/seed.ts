@@ -88,7 +88,102 @@ async function main() {
     });
   }
 
+  await seedRefunds({ analyst, lead });
+
   console.log("Seeded: analyst@demo.test / analyst123 (ANALYST), lead@demo.test / lead123 (OPS_LEAD)");
+}
+
+type Decider = { id: string; role: string };
+
+/**
+ * Refund review queue (docs/tools/refunds.md). Fixed ids so tests and docs can
+ * refer to them; createdAt is spread over the last 14 days relative to the
+ * first seed. Decided refunds get a matching audit_log row (once) so /audit
+ * shows their history on first run.
+ */
+async function seedRefunds({ analyst, lead }: { analyst: Decider; lead: Decider }) {
+  const now = Date.now();
+  const hoursAgo = (h: number) => new Date(now - h * 3_600_000);
+
+  type Seed = {
+    id: string;
+    customerId: string;
+    amountCents: number;
+    reason: string;
+    hoursAgo: number;
+    decision?: { status: "APPROVED" | "REJECTED"; by: Decider; afterHours: number; auditReason?: string };
+  };
+
+  const refunds: Seed[] = [
+    { id: "refund_small_1", customerId: "cust_4f2a", amountCents: 1200, hoursAgo: 20, reason: "Duplicate charge: billed twice for the March subscription renewal" },
+    { id: "refund_small_2", customerId: "cust_8c1d", amountCents: 4999, hoursAgo: 46, reason: "Item not received: tracking shows delivered but the parcel never arrived" },
+    { id: "refund_small_3", customerId: "cust_2b7e", amountCents: 12000, hoursAgo: 75, reason: "Service cancelled within the 14-day cooling-off period" },
+    { id: "refund_small_4", customerId: "cust_9a3f", amountCents: 25000, hoursAgo: 122, reason: "Pricing error: charged list price instead of the promotional rate" },
+    { id: "refund_small_5", customerId: "cust_6d0c", amountCents: 49900, hoursAgo: 141, reason: "Fraud claim: cardholder does not recognise this transaction" },
+    { id: "refund_large_1", customerId: "cust_3e8b", amountCents: 50000, hoursAgo: 9, reason: "Service cancelled: annual plan cancelled on day 2, requesting pro-rated refund" },
+    { id: "refund_large_2", customerId: "cust_7f41", amountCents: 75000, hoursAgo: 98, reason: "Item not received: furniture order lost in transit by the carrier" },
+    { id: "refund_large_3", customerId: "cust_1c9d", amountCents: 90000, hoursAgo: 165, reason: "Duplicate charge: checkout retried after a timeout and the card was charged twice" },
+    { id: "refund_large_4", customerId: "cust_5a62", amountCents: 180000, hoursAgo: 214, reason: "Fraud claim: account takeover, three unauthorised orders placed" },
+    { id: "refund_large_5", customerId: "cust_0e5b", amountCents: 250000, hoursAgo: 262, reason: "Pricing error: enterprise invoice issued with the wrong seat count" },
+    {
+      id: "refund_done_1", customerId: "cust_4b90", amountCents: 15000, hoursAgo: 290,
+      reason: "Item not received: order cancelled by the merchant but the card was still charged",
+      decision: { status: "APPROVED", by: lead, afterHours: 5 },
+    },
+    {
+      id: "refund_done_2", customerId: "cust_2d17", amountCents: 3200, hoursAgo: 318,
+      reason: "Duplicate charge: coffee subscription billed on two different cards",
+      decision: { status: "APPROVED", by: analyst, afterHours: 3 },
+    },
+    {
+      id: "refund_done_3", customerId: "cust_8e44", amountCents: 120000, hoursAgo: 238,
+      reason: "Fraud claim: cardholder disputes a laptop purchase shipped to a new address",
+      decision: { status: "REJECTED", by: lead, afterHours: 26, auditReason: "Chargeback already filed by cardholder" },
+    },
+    {
+      id: "refund_done_4", customerId: "cust_2d17", amountCents: 8900, hoursAgo: 190,
+      reason: "Duplicate charge: refund requested again for the coffee subscription double billing",
+      decision: { status: "REJECTED", by: analyst, afterHours: 2, auditReason: "Duplicate request, see refund_done_2" },
+    },
+  ];
+
+  for (const r of refunds) {
+    const createdAt = hoursAgo(r.hoursAgo);
+    const decidedAt = r.decision ? new Date(createdAt.getTime() + r.decision.afterHours * 3_600_000) : null;
+    const row = await prisma.refund.upsert({
+      where: { id: r.id },
+      update: {},
+      create: {
+        id: r.id,
+        customerId: r.customerId,
+        amountCents: r.amountCents,
+        currency: "USD",
+        reason: r.reason,
+        status: r.decision?.status ?? "PENDING",
+        decidedById: r.decision?.by.id ?? null,
+        decidedAt,
+        createdAt,
+      },
+    });
+
+    if (!r.decision) continue;
+    const audited = await prisma.auditLog.findFirst({ where: { entityType: "refund", entityId: r.id } });
+    if (audited) continue;
+    await prisma.auditLog.create({
+      data: {
+        actorId: r.decision.by.id,
+        actorRole: r.decision.by.role,
+        action: r.decision.status === "APPROVED" ? "refund.approve" : "refund.reject",
+        entityType: "refund",
+        entityId: r.id,
+        before: JSON.stringify({ ...row, status: "PENDING", decidedById: null, decidedAt: null }),
+        after: JSON.stringify(row),
+        requestId: `seed-${r.id.replace(/_/g, "-")}`,
+        reason: r.decision.auditReason ?? null,
+        createdAt: row.decidedAt ?? undefined,
+      },
+    });
+  }
 }
 
 main()
