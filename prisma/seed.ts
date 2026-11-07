@@ -89,6 +89,7 @@ async function main() {
   }
 
   await seedRefunds({ analyst, lead });
+  await seedKyc({ lead });
 
   console.log("Seeded: analyst@demo.test / analyst123 (ANALYST), lead@demo.test / lead123 (OPS_LEAD)");
 }
@@ -180,6 +181,102 @@ async function seedRefunds({ analyst, lead }: { analyst: Decider; lead: Decider 
         after: JSON.stringify(row),
         requestId: `seed-${r.id.replace(/_/g, "-")}`,
         reason: r.decision.auditReason ?? null,
+        createdAt: row.decidedAt ?? undefined,
+      },
+    });
+  }
+}
+
+/**
+ * KYC review queue (docs/tools/kyc.md). Fixed ids; createdAt spread over the
+ * last 14 days relative to the first seed. Decided cases get a matching
+ * audit_log row (once).
+ */
+async function seedKyc({ lead }: { lead: Decider }) {
+  const now = Date.now();
+  const hoursAgo = (h: number) => new Date(now - h * 3_600_000);
+
+  type Seed = {
+    id: string;
+    customerId: string;
+    documentType: "PASSPORT" | "DRIVERS_LICENSE" | "NATIONAL_ID";
+    riskScore: number;
+    notes: string | null;
+    hoursAgo: number;
+    decision?: {
+      status: "VERIFIED" | "ESCALATED" | "REJECTED";
+      by: Decider;
+      afterHours: number;
+      auditReason?: string;
+    };
+  };
+
+  const cases: Seed[] = [
+    { id: "kyc_low_1", customerId: "cust_a19f", documentType: "PASSPORT", riskScore: 12, hoursAgo: 6, notes: "MRZ and photo match; liveness check passed on first attempt." },
+    { id: "kyc_low_2", customerId: "cust_b27c", documentType: "DRIVERS_LICENSE", riskScore: 28, hoursAgo: 31, notes: "Address on licence differs from signup address; utility bill on file matches signup." },
+    { id: "kyc_low_3", customerId: "cust_c3d0", documentType: "NATIONAL_ID", riskScore: 45, hoursAgo: 58, notes: null },
+    { id: "kyc_low_4", customerId: "cust_d48e", documentType: "PASSPORT", riskScore: 61, hoursAgo: 104, notes: "Passport expires in 5 weeks. Name transliteration differs slightly from bank record." },
+    { id: "kyc_high_1", customerId: "cust_e52b", documentType: "DRIVERS_LICENSE", riskScore: 70, hoursAgo: 14, notes: "Glare over the date of birth field; vendor OCR confidence 0.62." },
+    { id: "kyc_high_2", customerId: "cust_f6a1", documentType: "NATIONAL_ID", riskScore: 78, hoursAgo: 77, notes: "Device fingerprint seen on two other accounts opened this month." },
+    { id: "kyc_high_3", customerId: "cust_g7c4", documentType: "PASSPORT", riskScore: 86, hoursAgo: 150, notes: "Possible PEP match (family member of a regional official); needs manual review." },
+    { id: "kyc_high_4", customerId: "cust_h8e9", documentType: "NATIONAL_ID", riskScore: 95, hoursAgo: 222, notes: "Selfie fails liveness; document template does not match issuing country specimen." },
+    {
+      id: "kyc_done_1", customerId: "cust_i903", documentType: "DRIVERS_LICENSE", riskScore: 20, hoursAgo: 270,
+      notes: "All checks passed.",
+      decision: { status: "VERIFIED", by: lead, afterHours: 4 },
+    },
+    {
+      id: "kyc_done_2", customerId: "cust_j0b6", documentType: "PASSPORT", riskScore: 88, hoursAgo: 300,
+      notes: "Issue date on document is 2019-04-11; vendor record shows 2018-04-11.",
+      decision: { status: "ESCALATED", by: lead, afterHours: 9, auditReason: "Document issue date does not match vendor record" },
+    },
+    {
+      id: "kyc_done_3", customerId: "cust_k1d2", documentType: "NATIONAL_ID", riskScore: 92, hoursAgo: 318,
+      notes: "Name and date of birth match an entry on the consolidated sanctions list.",
+      decision: { status: "REJECTED", by: lead, afterHours: 2, auditReason: "Sanctions list match confirmed" },
+    },
+    {
+      id: "kyc_done_4", customerId: "cust_l2f7", documentType: "PASSPORT", riskScore: 35, hoursAgo: 190,
+      notes: null,
+      decision: { status: "VERIFIED", by: lead, afterHours: 6 },
+    },
+  ];
+
+  const ACTION_FOR = { VERIFIED: "kyc.verify", ESCALATED: "kyc.escalate", REJECTED: "kyc.reject" } as const;
+
+  for (const c of cases) {
+    const createdAt = hoursAgo(c.hoursAgo);
+    const decidedAt = c.decision ? new Date(createdAt.getTime() + c.decision.afterHours * 3_600_000) : null;
+    const row = await prisma.kycCase.upsert({
+      where: { id: c.id },
+      update: {},
+      create: {
+        id: c.id,
+        customerId: c.customerId,
+        documentType: c.documentType,
+        riskScore: c.riskScore,
+        notes: c.notes,
+        status: c.decision?.status ?? "PENDING",
+        decidedById: c.decision?.by.id ?? null,
+        decidedAt,
+        createdAt,
+      },
+    });
+
+    if (!c.decision) continue;
+    const audited = await prisma.auditLog.findFirst({ where: { entityType: "kyccase", entityId: c.id } });
+    if (audited) continue;
+    await prisma.auditLog.create({
+      data: {
+        actorId: c.decision.by.id,
+        actorRole: c.decision.by.role,
+        action: ACTION_FOR[c.decision.status],
+        entityType: "kyccase",
+        entityId: c.id,
+        before: JSON.stringify({ ...row, status: "PENDING", decidedById: null, decidedAt: null }),
+        after: JSON.stringify(row),
+        requestId: `seed-${c.id.replace(/_/g, "-")}`,
+        reason: c.decision.auditReason ?? null,
         createdAt: row.decidedAt ?? undefined,
       },
     });

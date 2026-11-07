@@ -22,6 +22,7 @@ model User {
 
   auditEntries   AuditLog[]
   refundsDecided Refund[]
+  kycDecided     KycCase[]
 
   @@map("users")
 }
@@ -83,4 +84,25 @@ model Refund {
 
   @@index([status, createdAt])
   @@map("refunds")
+}
+
+model KycCase {
+  id           String    @id @default(cuid())
+  customerId   String    @map("customer_id")
+  /// "PASSPORT" | "DRIVERS_LICENSE" | "NATIONAL_ID"
+  documentType String    @map("document_type")
+  /// 0-100 from the KYC vendor; 70+ cannot be verified
+  riskScore    Int       @map("risk_score")
+  /// Analyst notes from the KYC vendor
+  notes        String?
+  /// "PENDING" | "VERIFIED" | "ESCALATED" | "REJECTED"
+  status       String    @default("PENDING")
+  decidedById  String?   @map("decided_by_id")
+  decidedAt    DateTime? @map("decided_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  decidedBy User? @relation(fields: [decidedById], references: [id])
+
+  @@index([status, createdAt])
+  @@map("kyc_cases")
 }

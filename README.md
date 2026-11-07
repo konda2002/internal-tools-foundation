@@ -9,6 +9,7 @@ files under `docs/tools/` (see `docs/adding-a-tool.md` and
 | Tool | Page | Spec |
 | --- | --- | --- |
 | Refund review queue | `/refunds` (ANALYST, OPS_LEAD) | `docs/tools/refunds.md` |
+| KYC review queue | `/kyc` (OPS_LEAD) | `docs/tools/kyc.md` |
 
 **Stack:** Next.js (App Router) · TypeScript · Prisma · SQLite · Vitest. No external services.
 
@@ -33,10 +34,10 @@ Other scripts:
 
 | Email | Password | Role | Sees |
 | --- | --- | --- | --- |
-| `lead@demo.test` | `lead123` | `OPS_LEAD` | Home, **Refunds** (`/refunds`, any amount), **Audit log** (`/audit`) |
+| `lead@demo.test` | `lead123` | `OPS_LEAD` | Home, **Refunds** (`/refunds`, any amount), **KYC review** (`/kyc`), **Audit log** (`/audit`) |
 | `analyst@demo.test` | `analyst123` | `ANALYST` | Home, **Refunds** (`/refunds`, may decide only refunds under $500) |
 
-The seed adds 14 refunds with fixed ids (`refund_small_1..5` under $500, `refund_large_1..5` at $500 or more, `refund_done_1..4` already decided, with matching audit rows).
+The seed adds 14 refunds with fixed ids (`refund_small_1..5` under $500, `refund_large_1..5` at $500 or more, `refund_done_1..4` already decided, with matching audit rows) and 12 KYC cases (`kyc_low_1..4` risk under 70, `kyc_high_1..4` risk 70+ which cannot be verified, `kyc_done_1..4` already decided, with matching audit rows).
 
 ## Layout
 
@@ -47,10 +48,12 @@ app/
     page.tsx             /  home
     audit/               /audit — example page using every kit component
     refunds/             /refunds — refund review queue (docs/tools/refunds.md)
+    kyc/                 /kyc — KYC review queue (docs/tools/kyc.md)
   api/
     auth/login, logout   session endpoints
     audit/route.ts       GET /api/audit (OPS_LEAD) — the READ example
     refunds/             GET /api/refunds, POST /api/refunds/[id]/approve|reject
+    kyc/                 GET /api/kyc, POST /api/kyc/[id]/verify|escalate|reject
     _template/route.ts   reference WRITE handler — copy for each tool (not served; `_` = private folder)
 components/              AppShell, QueueTable (sort/filter/paging), DetailPanel, ActionButton,
                          ConfirmDialog (collects a reason), TextField, SelectField
@@ -62,10 +65,10 @@ lib/
   nav.ts                 role-filtered nav entries
   db.ts                  Prisma client singleton
 prisma/
-  schema.prisma          users, audit_log, notes, refunds
+  schema.prisma          users, audit_log, notes, refunds, kyc_cases
   migrations/            SQL migrations (audit_log has no-UPDATE / no-DELETE triggers)
-  seed.ts                demo users, notes, refunds, sample audit rows (separate from migrations)
-tests/                   Vitest: login, requireRole, writeAudit, _template handler, refunds
+  seed.ts                demo users, notes, refunds, KYC cases, sample audit rows (separate from migrations)
+tests/                   Vitest: login, requireRole, writeAudit, _template handler, refunds, kyc
 docs/adding-a-tool.md    checklist for building a new tool on this foundation
 docs/governance.md       controls that are built in, and what production still needs
 .devin/playbooks/        Devin playbook that drives new-tool builds
