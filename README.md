@@ -1,5 +1,13 @@
 # internal-tools-foundation
 
+## About this repo
+
+This repo is the working prototype behind an evaluation of building internal
+tools with Devin instead of a low-code platform. Start with:
+
+- [`docs/EVALUATION.md`](docs/EVALUATION.md) — the evaluation and recommendation
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — the decisions made along the way and why
+
 Foundation for internal operations tools: stub auth with server-side roles, an
 append-only audit log, a small monochrome UI kit, and a reference API handler
 every future tool copies. Business tools are built on top of this from spec
@@ -14,6 +22,8 @@ files under `docs/tools/` (see `docs/adding-a-tool.md` and
 **Stack:** Next.js (App Router) · TypeScript · Prisma · SQLite · Vitest. No external services.
 
 ## Run
+
+Prerequisites: Node 20.9 or newer, npm 10+.
 
 ```bash
 npm run setup     # npm install, create .env, prisma migrate deploy, prisma generate, seed
@@ -38,6 +48,36 @@ Other scripts:
 | `analyst@demo.test` | `analyst123` | `ANALYST` | Home, **Refunds** (`/refunds`, may decide only refunds under $500) |
 
 The seed adds 14 refunds with fixed ids (`refund_small_1..5` under $500, `refund_large_1..5` at $500 or more, `refund_done_1..4` already decided, with matching audit rows) and 12 KYC cases (`kyc_low_1..4` risk under 70, `kyc_high_1..4` risk 70+ which cannot be verified, `kyc_done_1..4` already decided, with matching audit rows).
+
+## Demo walkthrough
+
+Start from a fresh seed (`npm run db:reset`) and follow the steps in order; the
+screenshots below were taken from the running app at each point.
+
+1. Sign in as `analyst@demo.test`. Open **Refunds**. Select `refund_small_1`
+   (customer `cust_4f2a`, $120) and approve it. Then select `refund_large_1`
+   (customer `cust_3e8b`, $500): the Approve button is disabled with the reason
+   "Refunds of $500 or more require an OPS_LEAD", and calling
+   `POST /api/refunds/refund_large_1/approve` directly as the analyst returns
+   `403`. The rule is enforced in the API; the disabled button only mirrors it.
+
+   ![Refunds queue as analyst: Approve disabled on a $500 refund with the reason shown](docs/screenshots/refunds-analyst-disabled-approve.png)
+
+2. Sign out, sign in as `lead@demo.test`. Open **Refunds** and approve
+   `refund_large_1`.
+
+3. Open **KYC review**. Select `kyc_high_1` (customer `cust_e52b`, risk 70):
+   Verify is disabled with "Risk score 70+ must be escalated or rejected", and
+   the API would answer `400` if called directly. Escalate it instead and enter
+   a reason in the confirmation dialog.
+
+   ![KYC queue with a high-risk case selected: Verify disabled, Escalate and Reject available](docs/screenshots/kyc-high-risk-case.png)
+
+4. Open **Audit log**. Every action above appears as `refund.approve` or
+   `kyc.escalate` with the actor, their role, the full before/after row, the
+   request id and the reason you entered.
+
+   ![Audit log after the walkthrough with the kyc.escalate row expanded](docs/screenshots/audit-log-after-walkthrough.png)
 
 ## Layout
 
