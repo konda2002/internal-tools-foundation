@@ -1,0 +1,66 @@
+// Prisma schema for the internal-tools foundation.
+// SQLite does not support enums or JSON columns in Prisma, so `role` and
+// `before`/`after` are stored as strings. The TypeScript side narrows them:
+// see `Role` in lib/auth.ts and `AuditChange` in lib/audit.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  /// "ANALYST" | "OPS_LEAD"
+  role         String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  auditEntries AuditLog[]
+
+  @@map("users")
+}
+
+/// Append-only. The migration adds SQLite triggers that abort any UPDATE or
+/// DELETE on this table; the only write path is lib/audit.ts#writeAudit.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String   @map("actor_id")
+  /// Role the actor held when acting ("ANALYST" | "OPS_LEAD"); roles change, history must not
+  actorRole  String   @map("actor_role")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  /// JSON snapshot of the entity before the change (null for creates)
+  before     String?
+  /// JSON snapshot of the entity after the change (null for deletes)
+  after      String?
+  /// Matches the x-request-id response header, for tracing a change to a request/log line
+  requestId  String?  @map("request_id")
+  /// Actor-supplied justification, when the tool asks for one
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([requestId])
+  @@map("audit_log")
+}
+
+/// Trivial entity that exists only so app/api/_template/route.ts has
+/// something to operate on. Real tools add their own models.
+model Note {
+  id     String @id @default(cuid())
+  body   String
+  /// "OPEN" | "RESOLVED" | "ARCHIVED"
+  status String @default("OPEN")
+
+  @@map("notes")
+}
