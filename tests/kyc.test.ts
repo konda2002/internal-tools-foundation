@@ -17,11 +17,11 @@ type Handler = typeof verify;
 const call = (handler: Handler, id: string, body: unknown, cookie?: string, raw = false) =>
   handler(jsonRequest(`/api/kyc/${id}/x`, body, { cookie, raw }), { params: Promise.resolve({ id }) });
 
-const auditCount = (entityId: string) => prisma.auditLog.count({ where: { entityType: "kyc_case", entityId } });
+const auditCount = (entityId: string) => prisma.auditLog.count({ where: { entityType: "kyccase", entityId } });
 
 async function latestAudit(entityId: string) {
   return prisma.auditLog.findFirstOrThrow({
-    where: { entityType: "kyc_case", entityId },
+    where: { entityType: "kyccase", entityId },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 }
@@ -186,7 +186,7 @@ describe("kyc", () => {
   describe("seed", () => {
     it("every decided case has a matching audit row", async () => {
       const seeded = await prisma.auditLog.findMany({
-        where: { entityType: "kyc_case", requestId: { startsWith: "seed-" } },
+        where: { entityType: "kyccase", requestId: { startsWith: "seed-" } },
         orderBy: { entityId: "asc" },
       });
       expect(seeded.map((a) => [a.entityId, a.action, a.reason, JSON.parse(a.after!).status])).toEqual([

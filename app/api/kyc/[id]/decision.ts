@@ -33,7 +33,7 @@ export function kycDecisionRoute(verb: KycVerb) {
     forbiddenMessage: KYC_PERMISSION_MESSAGE,
     body: Body,
 
-    entityType: "kyc_case",
+    entityType: "kyccase",
     load: async ({ params }) =>
       typeof params.id === "string" ? prisma.kycCase.findUnique({ where: { id: params.id } }) : null,
 

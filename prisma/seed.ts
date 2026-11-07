@@ -264,14 +264,14 @@ async function seedKyc({ lead }: { lead: Decider }) {
     });
 
     if (!c.decision) continue;
-    const audited = await prisma.auditLog.findFirst({ where: { entityType: "kyc_case", entityId: c.id } });
+    const audited = await prisma.auditLog.findFirst({ where: { entityType: "kyccase", entityId: c.id } });
     if (audited) continue;
     await prisma.auditLog.create({
       data: {
         actorId: c.decision.by.id,
         actorRole: c.decision.by.role,
         action: ACTION_FOR[c.decision.status],
-        entityType: "kyc_case",
+        entityType: "kyccase",
         entityId: c.id,
         before: JSON.stringify({ ...row, status: "PENDING", decidedById: null, decidedAt: null }),
         after: JSON.stringify(row),
