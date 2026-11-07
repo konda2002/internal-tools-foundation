@@ -39,6 +39,8 @@ export type WriteStepContext<Body> = {
 export type WriteRouteDef<Body, Entity extends { id: string }> = {
   /** Step 1. Role(s) allowed to call this route. */
   role: Role | readonly Role[];
+  /** Message for the step-1 403, when the spec fixes the wording. Defaults to requireRole's. */
+  forbiddenMessage?: string;
   /** Step 2. Zod schema for the JSON body. Add `reason: z.string()` to require a justification. */
   body: z.ZodType<Body>;
   /** Lower-case model name recorded as audit_log.entity_type, e.g. "note". */
@@ -69,7 +71,7 @@ export function defineWriteRoute<Body, Entity extends { id: string }>(
 ) {
   return withErrorHandling<RouteCtx>(async (req, routeCtx) => {
     // 1. Who may do this. Always first, always server-side.
-    const actor = await requireRole(def.role, req);
+    const actor = await requireRole(def.role, req, { forbiddenMessage: def.forbiddenMessage });
 
     // 2. What they sent. ZodError → 400 via withErrorHandling.
     const body = def.body.parse(await readJson(req));

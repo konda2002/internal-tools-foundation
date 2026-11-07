@@ -158,17 +158,19 @@ export async function getCurrentUser(req?: Request): Promise<SessionUser | null>
  * `withErrorHandling` turns those into JSON responses.
  *
  * Roles are exact: an OPS_LEAD calling an ANALYST-only route gets 403 too.
- * If a route should accept several roles, pass them all.
+ * If a route should accept several roles, pass them all. Pass
+ * `forbiddenMessage` when a spec fixes the 403 wording for its routes.
  */
 export async function requireRole(
   role: Role | readonly Role[],
   req?: Request,
+  opts: { forbiddenMessage?: string } = {},
 ): Promise<SessionUser> {
   const allowed = Array.isArray(role) ? (role as readonly Role[]) : [role as Role];
   const user = await getCurrentUser(req);
   if (!user) throw errors.unauthorized();
   if (!allowed.includes(user.role)) {
-    throw errors.forbidden(`This action requires role ${allowed.join(" or ")}`);
+    throw errors.forbidden(opts.forbiddenMessage ?? `This action requires role ${allowed.join(" or ")}`);
   }
   return user;
 }

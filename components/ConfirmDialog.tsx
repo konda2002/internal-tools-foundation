@@ -12,7 +12,8 @@ type Props = {
   confirmLabel?: string;
   /**
    * Ask the actor for a justification. The string is passed to `onConfirm` so
-   * the route can store it on the audit row (`reason`). `true` = required.
+   * the route can store it on the audit row (`reason`). `true` = required
+   * (3+ characters); `{ minLength: 0 }` = optional.
    */
   requireReason?: boolean | { minLength?: number; label?: string; placeholder?: string };
   loading?: boolean;
@@ -88,7 +89,11 @@ export function ConfirmDialog({
             placeholder={reasonOpts.placeholder ?? "Why are you doing this? Recorded in the audit log."}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            hint={`Required · at least ${minLength} characters · stored with the audit entry`}
+            hint={
+              minLength > 0
+                ? `Required · at least ${minLength} characters · stored with the audit entry`
+                : "Optional · stored with the audit entry"
+            }
             autoFocus
           />
         )}

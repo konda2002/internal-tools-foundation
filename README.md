@@ -2,9 +2,13 @@
 
 Foundation for internal operations tools: stub auth with server-side roles, an
 append-only audit log, a small monochrome UI kit, and a reference API handler
-every future tool copies. No business tools live here yet — they are built on
-top of this from spec files under `docs/tools/` (see `docs/adding-a-tool.md`
-and `.devin/playbooks/new-tool.md`).
+every future tool copies. Business tools are built on top of this from spec
+files under `docs/tools/` (see `docs/adding-a-tool.md` and
+`.devin/playbooks/new-tool.md`).
+
+| Tool | Page | Spec |
+| --- | --- | --- |
+| Refund review queue | `/refunds` (ANALYST, OPS_LEAD) | `docs/tools/refunds.md` |
 
 **Stack:** Next.js (App Router) · TypeScript · Prisma · SQLite · Vitest. No external services.
 
@@ -29,8 +33,10 @@ Other scripts:
 
 | Email | Password | Role | Sees |
 | --- | --- | --- | --- |
-| `lead@demo.test` | `lead123` | `OPS_LEAD` | Home, **Audit log** (`/audit`) |
-| `analyst@demo.test` | `analyst123` | `ANALYST` | Home only |
+| `lead@demo.test` | `lead123` | `OPS_LEAD` | Home, **Refunds** (`/refunds`, any amount), **Audit log** (`/audit`) |
+| `analyst@demo.test` | `analyst123` | `ANALYST` | Home, **Refunds** (`/refunds`, may decide only refunds under $500) |
+
+The seed adds 14 refunds with fixed ids (`refund_small_1..5` under $500, `refund_large_1..5` at $500 or more, `refund_done_1..4` already decided, with matching audit rows).
 
 ## Layout
 
@@ -40,9 +46,11 @@ app/
   (tools)/               everything behind sign-in, wrapped in AppShell
     page.tsx             /  home
     audit/               /audit — example page using every kit component
+    refunds/             /refunds — refund review queue (docs/tools/refunds.md)
   api/
     auth/login, logout   session endpoints
     audit/route.ts       GET /api/audit (OPS_LEAD) — the READ example
+    refunds/             GET /api/refunds, POST /api/refunds/[id]/approve|reject
     _template/route.ts   reference WRITE handler — copy for each tool (not served; `_` = private folder)
 components/              AppShell, QueueTable (sort/filter/paging), DetailPanel, ActionButton,
                          ConfirmDialog (collects a reason), TextField, SelectField
@@ -54,10 +62,10 @@ lib/
   nav.ts                 role-filtered nav entries
   db.ts                  Prisma client singleton
 prisma/
-  schema.prisma          users, audit_log, notes
+  schema.prisma          users, audit_log, notes, refunds
   migrations/            SQL migrations (audit_log has no-UPDATE / no-DELETE triggers)
-  seed.ts                demo users, notes, sample audit rows (separate from migrations)
-tests/                   Vitest: login, requireRole, writeAudit, _template handler
+  seed.ts                demo users, notes, refunds, sample audit rows (separate from migrations)
+tests/                   Vitest: login, requireRole, writeAudit, _template handler, refunds
 docs/adding-a-tool.md    checklist for building a new tool on this foundation
 docs/governance.md       controls that are built in, and what production still needs
 .devin/playbooks/        Devin playbook that drives new-tool builds
