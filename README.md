@@ -3,10 +3,8 @@
 ## About this repo
 
 This repo is the working prototype behind an evaluation of building internal
-tools with Devin instead of a low-code platform. Start with:
-
-- [`docs/EVALUATION.md`](docs/EVALUATION.md) — the evaluation and recommendation
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — the decisions made along the way and why
+tools with Devin instead of a low-code platform. The Loom walkthrough and the
+key-decisions one-pager are submitted alongside it.
 
 Foundation for internal operations tools: stub auth with server-side roles, an
 append-only audit log, a small monochrome UI kit, and a reference API handler
