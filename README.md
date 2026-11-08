@@ -55,7 +55,7 @@ Start from a fresh seed (`npm run db:reset`) and follow the steps in order; the
 screenshots below were taken from the running app at each point.
 
 1. Sign in as `analyst@demo.test`. Open **Refunds**. Select `refund_small_1`
-   (customer `cust_4f2a`, $120) and approve it. Then select `refund_large_1`
+   (customer `cust_4f2a`, $12) and approve it. Then select `refund_large_1`
    (customer `cust_3e8b`, $500): the Approve button is disabled with the reason
    "Refunds of $500 or more require an OPS_LEAD", and calling
    `POST /api/refunds/refund_large_1/approve` directly as the analyst returns

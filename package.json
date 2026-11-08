@@ -2,6 +2,9 @@
   "name": "internal-tools-foundation",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9"
+  },
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "dev": "next dev",
